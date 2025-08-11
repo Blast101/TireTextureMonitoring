@@ -17,15 +17,8 @@ This project involves training a neural network model to classify tire textures 
    - Allows users to upload an image for classification using the trained model.
    - Displays the selected image and the predicted class (Normal Tire or Cracked Tire).
 
-### 3. **background_image.jpg**
-   - Placeholder background image for the Tkinter GUI.
-   - Replace with the actual path to your preferred background image.
-
-### 4. **upload.png**
-   - Placeholder upload icon for the Tkinter GUI button.
-   - Replace with the actual path to your preferred upload icon.
 
 ## Running the Application
 
 1. **Install Dependencies**
-   pip install tensorflow pillow matplotlib keras scikit-learn
+   pip install requirements.txt

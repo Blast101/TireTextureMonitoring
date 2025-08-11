@@ -1,81 +1,58 @@
-import tkinter as tk
-from tkinter import ttk, filedialog
-from PIL import Image, ImageTk
-import numpy as np
+from flask import Flask, render_template, request
 import tensorflow as tf
+import numpy as np
+from PIL import Image
+import io
+import base64
 
-# Load your trained model without compiling (for inference only)
+app = Flask(__name__)
+
+# Load model once when the app starts
 model = tf.keras.models.load_model('model3.hdf5', compile=False)
 
-# Define the classes
+# Classes
 classes = {0: 'Normal Tire', 1: 'Cracked Tire'}
-
-# Set the threshold for classification
 THRESHOLD = 0.5
 
-# Function to preprocess the image for prediction
-def preprocess_image(image_path):
-    img = Image.open(image_path).convert('L')  # Convert to grayscale
-    img = img.resize((300, 300), Image.LANCZOS)  # Use LANCZOS for high-quality resizing
-    img = np.array(img).astype('float32') / 255.0  # Normalize to [0,1]
-    img = np.expand_dims(img, axis=-1)  # Add channel dimension
-    img = np.expand_dims(img, axis=0)   # Add batch dimension
-    return img
+def preprocess_image_from_bytes(image_bytes: bytes):
+    image_stream = io.BytesIO(image_bytes)
+    img = Image.open(image_stream).convert('L')
+    img = img.resize((300, 300), Image.LANCZOS)
+    img_array = np.array(img).astype('float32') / 255.0
+    img_array = np.expand_dims(img_array, axis=-1)  # channel
+    img_array = np.expand_dims(img_array, axis=0)   # batch
+    return img_array
 
-# Function to make a prediction
-def predict_image(image_path):
-    preprocessed_img = preprocess_image(image_path)
-    prediction = model.predict(preprocessed_img)
+def predict_image_from_bytes(image_bytes: bytes) -> str:
+    preprocessed = preprocess_image_from_bytes(image_bytes)
+    prediction = model.predict(preprocessed)
     class_index = 1 if prediction[0][0] >= THRESHOLD else 0
     return classes[class_index]
 
-# Function to handle file selection and prediction
-def choose_file():
-    file_path = filedialog.askopenfilename(
-        title="Select an image",
-        filetypes=[("Image files", "*.png;*.jpg;*.jpeg")]
-    )
-    if file_path:
-        img = Image.open(file_path)
-        img.thumbnail((400, 400))
-        img = ImageTk.PhotoImage(img)
-        panel.config(image=img)
-        panel.image = img
-        prediction_result.set(predict_image(file_path))
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    prediction = None
+    image_url = None
 
-# Create main window
-root = tk.Tk()
-root.title("Tire Texture Classifier")
-root.geometry("800x600")
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return render_template('index.html', prediction="No file selected", image_url=None)
+        
+        file = request.files['file']
+        if file.filename == '':
+            return render_template('index.html', prediction="No file selected", image_url=None)
+        
+        image_bytes = file.read()
+        if not image_bytes:
+            return render_template('index.html', prediction="Empty file uploaded", image_url=None)
 
-# Background image
-background_image = Image.open("background_image.jpg")
-background_image = ImageTk.PhotoImage(background_image)
-background_label = tk.Label(root, image=background_image)
-background_label.place(relwidth=1, relheight=1)
+        prediction = predict_image_from_bytes(image_bytes)
 
-# Title label
-title_label = tk.Label(root, text="Tire Texture Classifier",
-                       font=("Helvetica", 24, "bold"), bg="#b3e5fc")
-title_label.pack(pady=10)
+        mime_type = file.mimetype or 'image/jpeg'
+        b64_image = base64.b64encode(image_bytes).decode('utf-8')
+        image_url = f"data:{mime_type};base64,{b64_image}"
 
-# Upload button with icon
-upload_icon = Image.open("upload.png").resize((30, 30), Image.LANCZOS)
-upload_icon = ImageTk.PhotoImage(upload_icon)
-upload_button = ttk.Button(root, text="Upload Image",
-                           image=upload_icon, compound="left", command=choose_file)
-upload_button.pack(pady=20)
+    return render_template('index.html', prediction=prediction, image_url=image_url)
 
-# Image display panel
-panel = tk.Label(root)
-panel.pack()
-
-# Prediction result display
-prediction_result = tk.StringVar()
-prediction_label = tk.Label(root, textvariable=prediction_result,
-                            font=("Helvetica", 18), fg="green")
-prediction_label.pack(pady=20)
-
-# Run the GUI
 if __name__ == "__main__":
-    root.mainloop()
+    app.run(debug=True)

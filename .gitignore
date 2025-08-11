@@ -7,9 +7,15 @@
 # Whitelist only these paths/files to be tracked
 !/templates/
 !/static/
-!/app1.py
+!/app.py
 !/model3.hdf5
 !/requirements.txt
+
+# Explicitly ignore these files (already covered by /*, but listed for clarity)
+/app_test.py
+/.gitattributes
+/model.ipynb
+/upload.png
 
 # Ensure contents inside whitelisted directories are also included
 !/templates/**
